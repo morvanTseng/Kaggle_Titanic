@@ -44,6 +44,21 @@ def modelTest2():
     stacking=StackingModel([rf,bg,xg],tree,cv=5)
     scores=cross_val_score(stacking,X=X,y=y,cv=5)
     print('modelTest2:',np.mean(scores))
+
+def modelTest3():
+    train_path=os.path.join(os.path.dirname(cwd),'data/train_.csv')
+    train=pd.read_csv(train_path,header=0,index_col=0)
+    train['FamilySize']=FE.getFamilySize(train)
+    train['IsAlone']=FE.getIsAlone(train)
+    y=train.pop("Survived").values
+    X=train.values
+    rf=RandomForestClassifier(100)
+    bg=GradientBoostingClassifier(n_estimators=100)
+    xg=xgb.XGBClassifier(n_estimators=100)
+    tree=DecisionTreeClassifier()
+    stacking=StackingModel([rf,bg,xg],tree,cv=5)
+    scores=cross_val_score(stacking,X=X,y=y,cv=5)
+    print('modelTest2:',np.mean(scores))
  
 # a stacking model for out of fold prediction 
 class StackingModel(BaseEstimator,ClassifierMixin,TransformerMixin):
@@ -86,4 +101,4 @@ class StackingModel(BaseEstimator,ClassifierMixin,TransformerMixin):
             out_of_fold[:,i]=self.__vote(prediction)
         return self.metamodel_.predict(out_of_fold)  
 if(__name__=="__main__"):
-    modelTest2()
+    modelTest3()

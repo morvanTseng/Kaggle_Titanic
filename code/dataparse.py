@@ -116,6 +116,73 @@ def parseRawData2Numeric():
     train[features_in_train].to_csv(train_write_to_path)
     test[features_in_test].to_csv(test_write_to_path)
     logging.info('successfully write train_,test_ to disk')
+    
+def parseData():
+    '''
+    this func is for parsing raw data,basically just filling the nan values and processing the outliers
+    '''
+    train=pd.read_csv(trainData_path,header=0,index_col=None)
+    test=pd.read_csv(testData_path,header=0,index_col=None)
+    train_test={'train':train,'test':test}
+    
+    #fill the nan embarked in train,all this should be explored ahead
+    logging.info('--------------handling embarked miss in train -----------')
+    embarked_na_index=pd.isna(train['Embarked'])
+    logging.info('{} missing Embarked records'.format(np.sum(embarked_na_index)))
+    train.loc[embarked_na_index,'Embarked']='S'
+    logging.info('Embarked missing handling is done. {} miss remain(s)'.format(np.sum(pd.isna(train['Embarked']))))
+    # extract title from name
+    pattern='Miss|Mrs|Master|Mr'
+    def extract_title(data):
+        titles=[]
+        for index in data.index:
+            title=re.search(pattern,data[index])
+            if(title!=None):
+                titles.append(title.group())
+            else:
+                titles.append("Rare")
+        return titles
+    #extract titles
+    for key in train_test:
+        logging.info('Extracting titles from {}'.format(key))
+        data=train_test[key]
+        titles=extract_title(data['Name'])
+        data['Title']=titles
+        logging.info('Extract titles from {} is done'.format(key))
+    # fill the nan Age in train
+    """
+    we group the age by title,and we random age from mean+/- std
+    """
+    for key in train_test:
+        data=train_test[key]
+        mean_age_devided_by_title=data[['Title','Age']].groupby(by=['Title']).mean()
+        std_age_devided_by_title=data[['Title','Age']].groupby(by=['Title']).std()
+        bottom=mean_age_devided_by_title-std_age_devided_by_title
+        upper=mean_age_devided_by_title+std_age_devided_by_title
+        nan_index=data['Age'].isna()
+        logging.info('random a age to fill the nan in {}'.format(key))
+        for index in data[nan_index].index:
+            title_=data.loc[index,'Title']
+            random_age=uniform.rvs(bottom.loc[title_],upper.loc[title_])
+            data.loc[index,'Age']=int(random_age)
+        logging.info('all nan age in {} should be filled'.format(key))
+        logging.info('{1} nan age value in {0}'.format(key,data['Age'].isna().sum()))
+    
+    #fill fare nan value in test
+    fare_nan_index=test[pd.isna(test['Fare'])].index
+    test.loc[fare_nan_index,"Fare"]=7.5
+    #save
+    features={'train':['PassengerId','Survived','Pclass','Name','Sex','Age','SibSp','Parch','Ticket','Fare','Cabin','Embarked'],\
+              'test':['PassengerId','Pclass','Name','Sex','Age','SibSp','Parch','Ticket','Fare','Cabin','Embarked']}
+    savepath4train=os.path.join(os.path.dirname(cwd),'data/train_raw.csv')
+    savepath4test=os.path.join(os.path.dirname(cwd),'data/test_raw.csv')
+    path={'train':savepath4train,'test':savepath4test}
+    for key in train_test:
+        feature=features[key]
+        data=train_test[key][feature]
+        data.to_csv(path[key],index=False)
+        logging.info("{} to_csv is done".format(key))
+
 
 if(__name__=='__main__'):
-    parseRawData2Numeric()
+    parseData()
